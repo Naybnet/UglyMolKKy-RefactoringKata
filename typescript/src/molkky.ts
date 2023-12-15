@@ -1,83 +1,89 @@
-export class Molkky{
+export type MolkkyState = 'GAME ALREADY WON' | 'GAME ALREADY LOST' | 'WON' | 'LOST' | 'RUNNING' | 'SCORE OVERFLOW';
 
-  private currentScore: number = 0;
-  private fails: number = 0;
-  private overFlow = false;
-  private currentState: string | null  = null;
-  private running = true;
-  private duplicate = false;
+export class Molkky {
+  private _score: number;
+  private _nFailuresInARow: number;
+  private _hasOverflow;
+  private currentState: MolkkyState;
+  private running;
+  private _hasDuplicates;
 
-  public score() {
-    return this.currentScore;
+  constructor() {
+    this._score = 0;
+    this._nFailuresInARow = 0;
+    this._hasOverflow = false;
+    this.currentState = 'RUNNING';
+    this.running = true;
+    this._hasDuplicates = false;
   }
 
-  public shoot(pinValue: number[]) {
-  if(this.currentState == "WON") {
-  this.currentState = "GAME ALREADY WON";
-}
-if(!this.running && (this.fails == 3)) {
-  this.currentState = "GAME ALREADY LOST";
-} else {
-  if((pinValue.length >= 1)
-    && this.running) {
-    let tmpPins: number[] = [];
-    for(const pin of pinValue) {
-      if(!tmpPins.find(v => v == pin) && (pin < 13) && (pin >= 1)) {
-        tmpPins.push(pin);
-      }
+  get score() {
+    return this._score;
+  }
+
+  get state() {
+    return this.currentState;
+  }
+
+  get iswon() {
+    return this._score >= 50;
+  }
+
+  get hasOverflow() {
+    return this._hasOverflow;
+  }
+
+  get hasDuplicates() {
+    return this._hasDuplicates;
+  }
+
+  endGame() {
+    this.running = false;
+    this.currentState = this.iswon ? 'WON' : 'LOST';
+  }
+
+  manageEndedGame() {
+    if (['GAME ALREADY WON', 'GAME ALREADY LOST'].includes(this.currentState || '')) return;
+    this.currentState = this.iswon ? 'GAME ALREADY WON' : 'GAME ALREADY LOST';
+  }
+
+  public shoot(pinValues: number[]) {
+    if (!this.running) {
+      this.manageEndedGame();
+      return;
     }
-    if(tmpPins.length != pinValue.length) {
-      this.duplicate = true;
+
+    const shotHasMissed = pinValues.length === 0;
+
+    if (shotHasMissed) {
+      this._nFailuresInARow++;
+      if (this._nFailuresInARow >= 3) this.endGame();
+      return;
     }
-    if((this.currentScore + tmpPins.length) > 50) {
-      let overFlow = true;
-      this.currentScore = 25;
+
+    this._nFailuresInARow = 0;
+
+    const uniquePins = Array.from(new Set(pinValues)).filter((pin) => pin >= 1 && pin <= 12);
+
+    if (uniquePins.length != pinValues.length) {
+      this._hasDuplicates = true;
+    }
+
+    const shotHasHitMultiplePins = uniquePins.length > 1;
+
+    if (shotHasHitMultiplePins) {
+      this._score += uniquePins.length;
     } else {
-      let overFlow = false;
-      this.currentScore += this.duplicate ? tmpPins.length : pinValue.length;
+      this._score += uniquePins[0] || 0;
     }
-    this.fails -= 1;
-    if ((pinValue.length == 1)) {
-      if((((this.currentScore + pinValue[0]) - pinValue.length) < 51)) {
-        this.currentScore += (pinValue[0] > 0) && (13 > pinValue[0]) ? pinValue[0] - 1 : 0;
-        let overFlow = false;
-      } else {
-        this.currentScore = 25;
-        let overFlow = true;
-      }
-    }
-    if ((tmpPins.length == 1) && this.duplicate) {
-      if(50 > (((this.currentScore + tmpPins[0]) - (tmpPins.length + 1)))) {
-        this.currentScore += (tmpPins[0] < 1) || (tmpPins[0] > 12) ? -1 : tmpPins[0] - 1;
-        var overFlow = false;
-      } else {
-        this.currentScore = 25;
-        this.currentState = "SCORE OVERFLOW";
-        overFlow = true;
-      }
-    }
-    if(this.currentScore == 50) {
-      this.currentState = "WON";
-      this.running = false;
-    }
-  } else {
-    if(this.fails < 1) {
-      this.fails = 0;
-    }
-    if(this.fails > 1) {
-      this.currentState = "LOST";
-      this.running = false;
-    }
-    this.fails += 1;
-  }
-}
-}
 
-public state(): string {
-  if(this.currentState == null) {
-    this.currentState = "RUNNING";
-  }
+    // if (this.currentState === 'SCORE OVERFLOW') this.currentState = 'RUNNING'; // ??
+    if (this._score > 50) {
+      this._score = 25;
+      this._hasOverflow = true;
+      //this.currentState = 'SCORE OVERFLOW';
+    }
 
-  return this.currentState;
-}
+    if (this.iswon) this.endGame();
+  }
 }
